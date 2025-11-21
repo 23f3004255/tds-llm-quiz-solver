@@ -1,5 +1,6 @@
 import os
 import requests
+import json
 from typing import Dict, Any
 from dotenv import load_dotenv
 load_dotenv()
@@ -58,92 +59,10 @@ def call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 1024) -> Di
     return {"text": text, "raw": data}
 
 
-# import requests
-# import json
-#
-# def ask_steps_from_llm2(html: str, aipipe_token: str=AIPIPE_TOKEN, model: str = "gpt-4.1"):
-#     """
-#     Uses AIPipe LLM to generate the JSON steps plan from HTML.
-#     Returns a parsed dict.
-#     """
-#
-#     if not aipipe_token:
-#         raise RuntimeError("AIPIPE token missing")
-#
-#     SYSTEM_PROMPT = """
-#                 You are an expert automation planner.
-#                 Input: HTML of a quiz/task page.
-#                 Output: A JSON plan describing EXACTLY what steps the executor should perform.
-#
-#                 Rules:
-#                 - DO NOT solve the task yourself.
-#                 - Only produce a plan.
-#                 - Plan must be deterministic, executable, and unambiguous.
-#                 - Never include code.
-#                 - Use only the allowed action names:
-#                   ["download_file", "extract_table", "sum_column", "sum_values", "extract_text",
-#                    "find_number", "submit_result", "parse_html"]
-#
-#                 JSON format:
-#                 {
-#                   "steps": [
-#                     {
-#                       "action": "action_name",
-#                       "params": { ... }
-#                     }
-#                   ]
-#                 }
-#
-#                 Guidelines:
-#                 - If the HTML contains a link → use "download_file".
-#                 - If the task requires table extraction → use "extract_table".
-#                 - If the task requires summing → use "sum_column" or "sum_values".
-#                 - If values are embedded in text → use "extract_text" or "find_number".
-#                 - Always end with "submit_result" if the HTML describes a submission endpoint.
-#                 - Include required fields: email, secret, task_url, answer_key where applicable.
-#                 - Keep steps minimal but complete.
-#                 """
-#
-#     user_prompt = f"""
-#                     Here is the HTML content:
-#                     {html}
-#
-#                     Generate ONLY the JSON plan described in the system prompt.
-#                     """
-#
-#     # AIPipe API call
-#     response = requests.post(
-#         "https://aipipe.org/openai/v1/responses",
-#         headers={
-#             "Authorization": f"Bearer {aipipe_token}",
-#             "Content-Type": "application/json"
-#         },
-#         json={
-#             "model": model,
-#             "input": [
-#                 {"role": "system", "content": SYSTEM_PROMPT},
-#                 {"role": "user", "content": user_prompt}
-#             ],
-#             "response_format": {"type": "json_object"}  # enforces JSON!
-#         }
-#     )
-#
-#     response.raise_for_status()
-#     data = response.json()
-#
-#     # Extract the actual LLM text (JSON output)
-#     text = data["output"][0]["content"][0]["text"]
-#
-#     try:
-#         parsed = json.loads(text)
-#     except json.JSONDecodeError:
-#         raise ValueError("AIPipe returned invalid JSON:\n" + text)
-#
-#     return parsed
 
 
-import json
-import requests
+
+
 
 def ask_steps_from_llm(html: str, aipipe_token: str = AIPIPE_TOKEN, model: str = "gpt-5-nano"):
     """
@@ -231,13 +150,14 @@ def ask_steps_from_llm(html: str, aipipe_token: str = AIPIPE_TOKEN, model: str =
     #      { "role": "assistant", "content": [{ "text": "..."}] }
     #   ]
     # }
-    # text = data["output"][0]["content"][0]["text"].strip()
-    #
-    # # Parse the returned JSON
-    # try:
-    #     parsed = json.loads(text)
-    # except json.JSONDecodeError:
-    #     raise ValueError(f"AIPipe returned invalid JSON:\n{text}")
 
-    return data
+    text = data["output"][0]["content"][0]["text"].strip()
+
+    # Parse the returned JSON
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        raise ValueError(f"AIPipe returned invalid JSON:\n{text}")
+
+    return parsed
 
