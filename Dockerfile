@@ -24,7 +24,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # ---- Install Playwright browsers (Chromium only for smaller size) ----
 RUN playwright install chromium
 
-# ---- Expose API port (HuggingFace uses 7860) ----
 EXPOSE 7860
 
 # ---- Start FastAPI ----
