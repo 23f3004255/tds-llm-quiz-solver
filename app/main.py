@@ -1,16 +1,19 @@
 import asyncio
+import os
 import time
 from fastapi import FastAPI, Request, HTTPException
 from pydantic import BaseModel
 from starlette.responses import JSONResponse
-
 from app.solver import solve_quiz_entrypoint
+from dotenv import load_dotenv
+load_dotenv()
 
 app = FastAPI()
 
 
 # Environment Variables
-MAX_RUN_SECONDS =300
+MAX_RUN_SECONDS = int(os.getenv("MAX_RUN_SECOND"))
+secret = os.getenv("SECRET_KEY")
 
 
 
@@ -21,9 +24,12 @@ class QuizRequest(BaseModel):
     url:str
 
 @app.get("/")
-async def home():
-    return "Hello world"
-
+def home():
+    return {
+        "status": "running",
+        "message": "TDS Automation API is up and running!",
+        "usage": "Send a POST request to /solve with your quiz task."
+    }
 
 @app.post("/solve")
 async def solve(req:Request):
@@ -37,7 +43,7 @@ async def solve(req:Request):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid payload: {e}")
 
-    if q.secret != "secret":
+    if q.secret != secret:
         raise HTTPException(status_code=403, detail="Invalid secret")
 
     # Run solver with timeout

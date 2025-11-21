@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 import requests
-import tempfile
+import time
 import re
 from typing import List,Tuple
 from urllib.parse import urljoin, urlparse
@@ -18,20 +18,50 @@ def ensure_dir(d):
 ensure_dir(DOWNLOAD_DIR)
 
 
-def fetch_page_rendered_html(url:str,timeout_ms: int=60000)->Tuple[str,str]:
+def fetch_page_rendered_html(url: str, timeout_ms: int = 60000):
     """
-    Use playwright to open the page and return the rendered HTML and current URL.
+    Fetch fully rendered HTML from a JS-heavy page.
+    Robust version for TDS LLM Analysis Quiz.
     """
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context()
-        page = context.new_page()
-        page.goto(url,timeout=timeout_ms)
-        page.wait_for_load_state("networkidle",timeout=timeout_ms)
-        html = page.content()
-        current_url = page.url
-        browser.close()
-    return html,current_url
+
+    MAX_RETRIES = 3
+    wait_selector = "#result"  # used in demo pages
+    last_error = None
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=False)
+                context = browser.new_context(java_script_enabled=True)
+                page = context.new_page()
+
+                # go to page
+                page.goto(url, timeout=timeout_ms, wait_until="domcontentloaded")
+
+                # wait for JS to load relevant content
+                try:
+                    page.wait_for_selector(wait_selector, timeout=5000)
+                except Exception:
+                    # fallback: wait a little extra for JS
+                    time.sleep(2)
+
+                # IMPORTANT: evaluate JS fully before extracting
+                page.wait_for_load_state("networkidle", timeout=timeout_ms)
+
+                # get FULL rendered HTML
+                html = page.evaluate("() => document.documentElement.innerHTML")
+                current_url = page.url
+
+                browser.close()
+                return html, current_url
+
+        except Exception as e:
+            last_error = e
+            time.sleep(1)  # retry delay
+
+    # if all retries fail
+    print("HTML RENDER ERROR:", last_error)
+    return "", url
 
 
 def find_submit_and_question_from_html(html:str)->Tuple[str,str]:
